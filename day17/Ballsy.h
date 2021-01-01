@@ -23,7 +23,7 @@ public:
 	virtual void Tick(float DeltaTime) override;
 	virtual void OnConstruction(const FTransform& Transform) override;
 	UPROPERTY(EditAnywhere)
-	class UMaterial* Material;
+	class UMaterialInstance* Material;
 	UPROPERTY(EditAnywhere)
 	class UStaticMesh* Mesh;
 private:

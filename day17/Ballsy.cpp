@@ -29,7 +29,7 @@ ABallsy::ABallsy()
 //	PrimaryActorTick.bTickEvenWhenPaused = true;
 	PrimaryActorTick.TickGroup = TG_PrePhysics;
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> aCube(TEXT("StaticMesh'/Engine/BasicShapes/Cube.Cube'"));
-	this->Material = CreateDefaultSubobject<UMaterial>(TEXT("Material"));
+	this->Material = CreateDefaultSubobject<UMaterialInstance>(TEXT("Material"));
 	this->Mesh = CreateOptionalDefaultSubobject<UStaticMesh>(TEXT("Mesh"));
 	this->IMesh = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("IMesh"));
 	this->IMesh->SetStaticMesh(aCube.Object); // default to a cube
