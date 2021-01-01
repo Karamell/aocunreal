@@ -3,7 +3,7 @@
 
 #include "Ballsy.h"
 
-const char* GInput[] = {
+const char* GInput1[] = {
 	"##.#####",
     "#.##..#.",
     ".##...##",
@@ -12,6 +12,12 @@ const char* GInput[] = {
     "##....##",
     "###.###.",
     ".#.#.#.."
+};
+
+const char* GInput[] = {
+	".#.",
+	"..#",
+	"###"
 };
 
 
@@ -28,7 +34,7 @@ ABallsy::ABallsy()
 	this->IMesh = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("IMesh"));
 	this->IMesh->SetStaticMesh(aCube.Object); // default to a cube
 	this->SetRootComponent(this->IMesh);
-	this->Cubes = TArray<FIntVector4>();
+	this->Cubes = TSet<FVector4>();
 	Instances = TArray<FTransform>();
 
 	UE_LOG(LogTemp, Display, TEXT("constructed"))
@@ -45,42 +51,26 @@ void ABallsy::OnConstruction(const FTransform& Transform)
 		this->IMesh->SetStaticMesh(this->Mesh);
 	}
 	this->IMesh->SetFlags(RF_Transactional);
-	const auto T0 = FTransform();
-	IMesh->AddInstance(T0); // mesh at 0,0,0
-
-
-	//GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Orange, FString::Printf(TEXT("Init Cubes count: %d"), Cubes.Num()));
-	UE_LOG(LogTemp, Display, TEXT("Init Cubes count: %d"), this->Cubes.Num())
-//	Super::OnConstruction(Transform);
+	InitCubes();
+	Paint();
 }
 
 // Called when the game starts or when spawned
 void ABallsy::BeginPlay()
 {
 	Super::BeginPlay();
-	// init state
-	for (int y = 0; y < 7; y++)
-	{
-		for(int x = 0; x < 8; x++)
-		{
-			if (GInput[y][x] == '#') {
-				this->Cubes.Add(FIntVector4(x, y, 0, 0));
-			}
-		}
-	}
-	Paint();
+	InitCubes();
 	GetWorld()->GetTimerManager().SetTimer(GameTimerHandle, this, &ABallsy::OnGameTick, 5.0, false);
 }
 
 void ABallsy::Paint()
 {
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Orange, FString::Printf(TEXT("CUBE count: %d"), this->Cubes.Num()));
 	Instances.Empty(Cubes.Num());
 	for (auto c: this->Cubes) {
 		auto Translation = FVector(100 * c.X, 100 * c.Y, 100 * c.Z);
-		auto Rotation = FQuat(1, 0, 0, FMath::DegreesToRadians(c.W)).GetNormalized();
-		auto T = FTransform(Rotation, Translation, FVector(0.7));
-		//GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Cyan, FString::Printf(TEXT("Adding %s"), *Translation.ToString()));
+		auto Rotation = FQuat(1, 0, 0, FMath::DegreesToRadians(29 * c.W)).GetNormalized();
+		auto Scale = FVector(0.7);
+		auto T = FTransform(Rotation, Translation, Scale);
 		Instances.Add(T);
 	}
 	IMesh->ClearInstances();
@@ -90,16 +80,39 @@ void ABallsy::Paint()
 	IMesh->MarkRenderStateDirty();
 }
 
-TSet<FIntVector4> ABallsy::Neighbours(const FIntVector4 v)
+void ABallsy::InitCubes()
 {
-	auto Ta = TSet<FIntVector4>();
-	for (int x = 0; x < 3; x++) {
-		for (int y = 0; y < 3; y++) {
-			for (int z = 0; z < 3; z++) {
-				for (int w = 0; w < 3; w++) {
-					if (x + y + z + w != 0)
+	int ylen = *(&GInput + 1) - GInput;
+	int xlen = strlen(GInput[0]);
+	auto Init = TArray<FVector4>();
+	Init.Empty(ylen * xlen);
+	for (int y = 0; y < ylen; y++)
+	{
+		for(int x = 0; x < xlen; x++)
+		{
+			if (GInput[y][x] == '#') {
+				Init.Add(FVector4(x, y, 0, 0));
+			}
+		}
+	}
+	UE_LOG(LogTemp, Display, TEXT("Init Cubes count: %d"), Init.Num())
+	auto Cb = TSet<FVector4>();
+	Cb.Append(Init);
+	this->Cubes = Cb;
+}
+
+TArray<FVector4> ABallsy::Neighbours(const FVector4 v)
+{
+	auto Ta = TArray<FVector4>();
+	Ta.Empty(80);
+	for (int x = -1; x <= 1 ; x++) {
+		for (int y = -1; y <= 1; y++) {
+			for (int z = -1; z <= 1; z++) {
+				for (int w = -1; w <= 1; w++) {
+					if (!(x == 0 && y == 0 && z == 0 && w == 0))
 					{
-						Ta.Add(FIntVector4(v.X + x - 1, v.Y + y - 1, v.Z + z - 1, v.W + w - 1));
+						auto Vec = FVector4(v.X + x, v.Y + y, v.Z + z, v.W + w);
+						Ta.Add(Vec);
 					}
 				}
 			}
@@ -110,42 +123,47 @@ TSet<FIntVector4> ABallsy::Neighbours(const FIntVector4 v)
 
 void ABallsy::Step()
 {
-	auto Consider = TSet<FIntVector4>();
-	auto NewCubes = TSet<FIntVector4>();
+	auto Consider = TSet<FVector4>();
 	for (auto C : this->Cubes) {
 		Consider.Append(this->Neighbours(C));
 	}
-	for (auto c : Consider)
+	UE_LOG(LogTemp, Display, TEXT("Consider %d neighbours"), Consider.Num())
+	auto NewCubes = TSet<FVector4>();
+	for (auto C : Consider)
 	{
 		int activeNeighbours = 0;
-		for (auto N: this->Neighbours(c)) {
+		for (auto N: this->Neighbours(C)) {
 			if (this->Cubes.Contains(N)) {activeNeighbours++;}
 		}
-		if (this->Cubes.Contains(c))
+
+		if (this->Cubes.Contains(C))
 		{
-			if (activeNeighbours == 2 || activeNeighbours == 3) NewCubes.Add(c);
+			if (activeNeighbours == 2 || activeNeighbours == 3) {NewCubes.Add(C);}
 		}
 		else
 		{
-			if (activeNeighbours == 3) NewCubes.Add(c);
+			if (activeNeighbours == 3) {NewCubes.Add(C);}
 		}
 	}
-	this->Cubes = NewCubes.Array();
+	UE_LOG(LogTemp, Display, TEXT("Making %d new cubes."), NewCubes.Num())
+	this->Cubes = NewCubes;
 }
 
 void ABallsy::OnGameTick()
 {
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Orange, FString::Printf(TEXT("TICK: Cycle %i"), Cycles));
-	Step();
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Orange, FString::Printf(TEXT("TICK: Cycle %i, Cubes:%i"), Cycles, Cubes.Num()));
-	Paint();
 	Cycles++;
-	GetWorld()->GetTimerManager().SetTimer(GameTimerHandle, this, &ABallsy::OnGameTick, 5.0, false);
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Orange, FString::Printf(TEXT("TICK: Cycle %i, Cubes:%i"), Cycles, Cubes.Num()));
+	Step();
+	Paint();
+	UE_LOG(LogTemp, Display, TEXT("Cycle %d contains %d cubes."), Cycles, Cubes.Num())
+	if (Cycles < 6) 
+	{
+		GetWorld()->GetTimerManager().SetTimer(GameTimerHandle, this, &ABallsy::OnGameTick, 5.0, false);
+	}
 }
 
 // Called every frame
 void ABallsy::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
 }

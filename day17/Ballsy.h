@@ -29,10 +29,11 @@ public:
 private:
 	void Step();
 	void Paint();
-    static TSet<FIntVector4> Neighbours(const FIntVector4 v);
+    void InitCubes();
+    static TArray<FVector4> Neighbours(const FVector4 v);
 	UInstancedStaticMeshComponent* IMesh;
 	FTimerHandle GameTimerHandle;
-	TArray<FIntVector4> Cubes;
+	TSet<FVector4> Cubes;	//TSet/TArray<FIntVector4> fungerer ikke. BUG??? Contains /Set.Add er buggers
 	int Cycles = 0;
 	UPROPERTY()
 	TArray<FTransform> Instances;
