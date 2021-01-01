@@ -8,7 +8,7 @@
 #include "Ballsy.generated.h"
 
 UCLASS()
-class DAY24_API ABallsy : public AActor
+class DAY17_API ABallsy : public AActor
 {
 	GENERATED_BODY()
 
@@ -27,6 +27,13 @@ public:
 	UPROPERTY(EditAnywhere)
 	class UStaticMesh* Mesh;
 private:
+	void Step();
+	void Paint();
+    static TSet<FIntVector4> Neighbours(const FIntVector4 v);
 	UInstancedStaticMeshComponent* IMesh;
 	FTimerHandle GameTimerHandle;
+	TArray<FIntVector4> Cubes;
+	int Cycles = 0;
+	UPROPERTY()
+	TArray<FTransform> Instances;
 };

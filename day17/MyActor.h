@@ -4,16 +4,16 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "Solver.generated.h"
+#include "MyActor.generated.h"
 
 UCLASS()
-class DAY24_API ASolver : public AActor
+class DAY17_API AMyActor : public AActor
 {
 	GENERATED_BODY()
 	
 public:	
 	// Sets default values for this actor's properties
-	ASolver();
+	AMyActor();
 
 protected:
 	// Called when the game starts or when spawned
