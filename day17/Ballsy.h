@@ -29,12 +29,13 @@ public:
 private:
 	void Step();
 	void Paint();
-    void InitCubes();
+    TArray<FVector4> InitCubes();
     static TArray<FVector4> Neighbours(const FVector4 v);
+	UPROPERTY()
 	UInstancedStaticMeshComponent* IMesh;
 	FTimerHandle GameTimerHandle;
-	TSet<FVector4> Cubes;	//TSet/TArray<FIntVector4> fungerer ikke. BUG??? Contains /Set.Add er buggers
-	int Cycles = 0;
+	int Cycle = 0;
+	TArray<FVector4> Cubes;	//TSet/TArray<FIntVector4> fungerer ikke. BUG??? Contains /Set.Add er buggers
 	UPROPERTY()
 	TArray<FTransform> Instances;
 };

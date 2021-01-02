@@ -20,24 +20,25 @@ const char* GInput[] = {
 	"###"
 };
 
+const float GGameRate = 5.0; // game ticks every n seconds
+const int GCycles = 6;
 
 ABallsy::ABallsy()
 // Sets default values
 {
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
-//	PrimaryActorTick.bTickEvenWhenPaused = true;
 	PrimaryActorTick.TickGroup = TG_PrePhysics;
-	static ConstructorHelpers::FObjectFinder<UStaticMesh> aCube(TEXT("StaticMesh'/Engine/BasicShapes/Cube.Cube'"));
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> ACube(TEXT("StaticMesh'/Engine/BasicShapes/Cube.Cube'"));
 	this->Material = CreateDefaultSubobject<UMaterialInstance>(TEXT("Material"));
 	this->Mesh = CreateOptionalDefaultSubobject<UStaticMesh>(TEXT("Mesh"));
 	this->IMesh = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("IMesh"));
-	this->IMesh->SetStaticMesh(aCube.Object); // default to a cube
+	this->IMesh->SetStaticMesh(ACube.Object); // default to a cube
 	this->SetRootComponent(this->IMesh);
-	this->Cubes = TSet<FVector4>();
+	this->Cubes = TArray<FVector4>();
 	Instances = TArray<FTransform>();
-
-	UE_LOG(LogTemp, Display, TEXT("constructed"))
+	this->Cubes = InitCubes();
+	UE_LOG(LogTemp, Display, TEXT("Constructor called"))
 }
 
 void ABallsy::OnConstruction(const FTransform& Transform)
@@ -51,7 +52,6 @@ void ABallsy::OnConstruction(const FTransform& Transform)
 		this->IMesh->SetStaticMesh(this->Mesh);
 	}
 	this->IMesh->SetFlags(RF_Transactional);
-	InitCubes();
 	Paint();
 }
 
@@ -59,8 +59,7 @@ void ABallsy::OnConstruction(const FTransform& Transform)
 void ABallsy::BeginPlay()
 {
 	Super::BeginPlay();
-	InitCubes();
-	GetWorld()->GetTimerManager().SetTimer(GameTimerHandle, this, &ABallsy::OnGameTick, 5.0, false);
+	GetWorld()->GetTimerManager().SetTimer(GameTimerHandle, this, &ABallsy::OnGameTick, GGameRate, false);
 }
 
 void ABallsy::Paint()
@@ -80,15 +79,15 @@ void ABallsy::Paint()
 	IMesh->MarkRenderStateDirty();
 }
 
-void ABallsy::InitCubes()
+TArray<FVector4> ABallsy::InitCubes()
 {
-	int ylen = *(&GInput + 1) - GInput;
-	int xlen = strlen(GInput[0]);
+	const int Ylen = *(&GInput + 1) - GInput;
+	const int Xlen = strlen(GInput[0]);
 	auto Init = TArray<FVector4>();
-	Init.Empty(ylen * xlen);
-	for (int y = 0; y < ylen; y++)
+	Init.Empty(Ylen * Xlen);
+	for (int y = 0; y < Ylen; y++)
 	{
-		for(int x = 0; x < xlen; x++)
+		for(int x = 0; x < Xlen; x++)
 		{
 			if (GInput[y][x] == '#') {
 				Init.Add(FVector4(x, y, 0, 0));
@@ -96,9 +95,7 @@ void ABallsy::InitCubes()
 		}
 	}
 	UE_LOG(LogTemp, Display, TEXT("Init Cubes count: %d"), Init.Num())
-	auto Cb = TSet<FVector4>();
-	Cb.Append(Init);
-	this->Cubes = Cb;
+	return Init;
 }
 
 TArray<FVector4> ABallsy::Neighbours(const FVector4 v)
@@ -124,25 +121,34 @@ TArray<FVector4> ABallsy::Neighbours(const FVector4 v)
 void ABallsy::Step()
 {
 	auto Consider = TSet<FVector4>();
-	for (auto C : this->Cubes) {
+	for (const auto C : this->Cubes) {
 		Consider.Append(this->Neighbours(C));
 	}
 	UE_LOG(LogTemp, Display, TEXT("Consider %d neighbours"), Consider.Num())
-	auto NewCubes = TSet<FVector4>();
-	for (auto C : Consider)
+	const auto CubeSet = TSet<FVector4>(this->Cubes);
+	auto NewCubes = TArray<FVector4>();
+	auto Shrinks = TArray<int>();
+	for (const auto C : Consider)
 	{
 		int activeNeighbours = 0;
-		for (auto N: this->Neighbours(C)) {
-			if (this->Cubes.Contains(N)) {activeNeighbours++;}
+		for (const auto N: this->Neighbours(C)) {
+			if (CubeSet.Contains(N)) {activeNeighbours++;}
 		}
-
-		if (this->Cubes.Contains(C))
+		const auto Found = this->Cubes.Find(C);
+		if (Found == INDEX_NONE)
 		{
-			if (activeNeighbours == 2 || activeNeighbours == 3) {NewCubes.Add(C);}
+			if (activeNeighbours == 3) {NewCubes.Add(C);}
 		}
 		else
 		{
-			if (activeNeighbours == 3) {NewCubes.Add(C);}
+			if (activeNeighbours == 2 || activeNeighbours == 3)
+			{
+				NewCubes.Add(C);
+			}
+			else
+			{
+				Shrinks.Add(Found);
+			}
 		}
 	}
 	UE_LOG(LogTemp, Display, TEXT("Making %d new cubes."), NewCubes.Num())
@@ -151,14 +157,14 @@ void ABallsy::Step()
 
 void ABallsy::OnGameTick()
 {
-	Cycles++;
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Orange, FString::Printf(TEXT("TICK: Cycle %i, Cubes:%i"), Cycles, Cubes.Num()));
+	Cycle++;
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Orange, FString::Printf(TEXT("TICK: Cycle %i, Cubes:%i"), Cycle, Cubes.Num()));
 	Step();
+	UE_LOG(LogTemp, Display, TEXT("Cycle %d contains %d cubes."), Cycle, Cubes.Num())
 	Paint();
-	UE_LOG(LogTemp, Display, TEXT("Cycle %d contains %d cubes."), Cycles, Cubes.Num())
-	if (Cycles < 6) 
+	if (Cycle < GCycles)
 	{
-		GetWorld()->GetTimerManager().SetTimer(GameTimerHandle, this, &ABallsy::OnGameTick, 5.0, false);
+		GetWorld()->GetTimerManager().SetTimer(GameTimerHandle, this, &ABallsy::OnGameTick, GGameRate, false);
 	}
 }
 
