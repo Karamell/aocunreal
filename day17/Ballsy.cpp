@@ -3,6 +3,9 @@
 
 #include "Ballsy.h"
 
+#include "Engine/Engine.h"
+#include "UObject/ConstructorHelpers.h"
+
 const char* GInput[] = {
 	"##.#####",
     "#.##..#.",
@@ -21,7 +24,7 @@ const char* GInput_[] = {
 };
 
 const float GGameRate = 4.0; // game ticks every GGameRate seconds + 1 sec to shrink and x seconds to calculate.
-const int GCycles = 8; // number of Cycles to play.
+const int GCycles = 10; // number of Cycles to play.
 
 ABallsy::ABallsy()
 // Sets default values
@@ -31,6 +34,14 @@ ABallsy::ABallsy()
 	PrimaryActorTick.TickGroup = TG_PrePhysics;
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> ACube(TEXT("StaticMesh'/Engine/BasicShapes/Cube.Cube'"));
 	this->Material = CreateDefaultSubobject<UMaterialInstance>(TEXT("Material"));
+	this->SoundCueShrink = CreateOptionalDefaultSubobject<USoundCue>(TEXT("SoundShrink"));
+    this->AudioComponentShrink = CreateDefaultSubobject<UAudioComponent>(TEXT("AudioComponentShrink"));
+	this->AudioComponentShrink->bAutoActivate = false;
+	this->AudioComponentShrink->SetupAttachment(RootComponent);
+	this->SoundCueGrow = CreateOptionalDefaultSubobject<USoundCue>(TEXT("SoundGrow"));
+    this->AudioComponentGrow = CreateDefaultSubobject<UAudioComponent>(TEXT("AudioComponentGrow"));
+	this->AudioComponentGrow->bAutoActivate = false;
+	this->AudioComponentGrow->SetupAttachment(RootComponent);
 	this->Mesh = CreateOptionalDefaultSubobject<UStaticMesh>(TEXT("Mesh"));
 	this->IMesh = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("IMesh"));
 	this->IMesh->SetStaticMesh(ACube.Object); // default to a cube
@@ -53,6 +64,12 @@ void ABallsy::OnConstruction(const FTransform& Transform)
 		this->IMesh->SetStaticMesh(this->Mesh);
 	}
 	this->IMesh->SetFlags(RF_Transactional);
+	if (this->SoundCueShrink) {
+		this->AudioComponentShrink->SetSound(this->SoundCueShrink);
+	}
+	if (this->SoundCueGrow) {
+		this->AudioComponentGrow->SetSound(this->SoundCueGrow);
+	}
 	Paint();
 }
 
@@ -76,6 +93,8 @@ void ABallsy::Paint()
 		auto T = FTransform(Rotation, Translation, Scale);
 		Instances.Add(T);
 	}
+
+	this->AudioComponentGrow->Play();
 	IMesh->ClearInstances();
 	IMesh->AddInstances(this->Instances, false);
 	int const Count = IMesh->GetInstanceCount();
@@ -154,6 +173,11 @@ void ABallsy::Step()
 				Shrinks.Add(Found);
 			}
 		}
+	}
+	for (auto S: Shrinks) {
+		this->AudioComponentShrink->SetPitchMultiplier(1.0 + S/Shrinks.Num());
+		this->AudioComponentShrink->AddLocalOffset(this->Cubes[S]);
+		this->AudioComponentShrink->Play();
 	}
 	UE_LOG(LogTemp, Display, TEXT("Making %d new cubes."), NewCubes.Num())
 	this->Cubes = NewCubes;

@@ -5,6 +5,8 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "Components/InstancedStaticMeshComponent.h"
+#include "Components/AudioComponent.h"
+#include "Sound/SoundCue.h"
 #include "Ballsy.generated.h"
 
 UCLASS()
@@ -24,21 +26,28 @@ public:
 	virtual void Tick(float DeltaTime) override;
 	virtual void OnConstruction(const FTransform& Transform) override;
 	UPROPERTY(EditAnywhere)
-	class UMaterialInstance* Material;
+	    class UMaterialInstance* Material;
 	UPROPERTY(EditAnywhere)
-	class UStaticMesh* Mesh;
-
+	    class UStaticMesh* Mesh;
+	UPROPERTY(EditAnywhere)
+        class USoundCue* SoundCueGrow;
+	UPROPERTY(EditAnywhere)
+        class USoundCue* SoundCueShrink;
 private:
 	void Step();
 	void Paint();
     TArray<FVector4> InitCubes();
     static TArray<FVector4> Neighbours(const FVector4 v);
 	UPROPERTY()
-	UInstancedStaticMeshComponent* IMesh;
+	    UInstancedStaticMeshComponent* IMesh;
 	FTimerHandle GameTimerHandle;
 	int Cycle = 0;
 	TArray<FVector4> Cubes;	//TSet/TArray<FIntVector4> fungerer ikke. BUG??? Contains /Set.Add er buggers
 	TArray<int> Shrinks;
 	UPROPERTY()
-	TArray<FTransform> Instances;
+	    TArray<FTransform> Instances;
+	UPROPERTY()
+		UAudioComponent* AudioComponentGrow;
+	UPROPERTY()
+		UAudioComponent* AudioComponentShrink;
 };
