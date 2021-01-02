@@ -18,6 +18,7 @@ public:
 protected:
 	virtual void BeginPlay() override;
 	UFUNCTION() void OnGameTick();
+	UFUNCTION() void OnGameShrunk();
 public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
@@ -26,6 +27,7 @@ public:
 	class UMaterialInstance* Material;
 	UPROPERTY(EditAnywhere)
 	class UStaticMesh* Mesh;
+
 private:
 	void Step();
 	void Paint();
@@ -36,6 +38,7 @@ private:
 	FTimerHandle GameTimerHandle;
 	int Cycle = 0;
 	TArray<FVector4> Cubes;	//TSet/TArray<FIntVector4> fungerer ikke. BUG??? Contains /Set.Add er buggers
+	TArray<int> Shrinks;
 	UPROPERTY()
 	TArray<FTransform> Instances;
 };

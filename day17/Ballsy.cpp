@@ -3,7 +3,7 @@
 
 #include "Ballsy.h"
 
-const char* GInput1[] = {
+const char* GInput[] = {
 	"##.#####",
     "#.##..#.",
     ".##...##",
@@ -14,14 +14,14 @@ const char* GInput1[] = {
     ".#.#.#.."
 };
 
-const char* GInput[] = {
+const char* GInput_[] = {
 	".#.",
 	"..#",
 	"###"
 };
 
-const float GGameRate = 5.0; // game ticks every n seconds
-const int GCycles = 6;
+const float GGameRate = 4.0; // game ticks every GGameRate seconds + 1 sec to shrink and x seconds to calculate.
+const int GCycles = 8; // number of Cycles to play.
 
 ABallsy::ABallsy()
 // Sets default values
@@ -36,7 +36,8 @@ ABallsy::ABallsy()
 	this->IMesh->SetStaticMesh(ACube.Object); // default to a cube
 	this->SetRootComponent(this->IMesh);
 	this->Cubes = TArray<FVector4>();
-	Instances = TArray<FTransform>();
+	this->Instances = TArray<FTransform>();
+	this->Shrinks = TArray<int>();
 	this->Cubes = InitCubes();
 	UE_LOG(LogTemp, Display, TEXT("Constructor called"))
 }
@@ -64,10 +65,13 @@ void ABallsy::BeginPlay()
 
 void ABallsy::Paint()
 {
+	Shrinks.Empty();
 	Instances.Empty(Cubes.Num());
 	for (auto c: this->Cubes) {
-		auto Translation = FVector(100 * c.X, 100 * c.Y, 100 * c.Z);
-		auto Rotation = FQuat(1, 0, 0, FMath::DegreesToRadians(29 * c.W)).GetNormalized();
+		float OffsetX = -400;
+		float OffsetY = -350;
+		auto Translation = FVector(OffsetX + 100 * c.X, OffsetY + 100 * c.Y, 100 * c.Z);
+		auto Rotation = FQuat(FVector(1, 0, 0), FMath::DegreesToRadians(29 * c.W));
 		auto Scale = FVector(0.7);
 		auto T = FTransform(Rotation, Translation, Scale);
 		Instances.Add(T);
@@ -127,7 +131,7 @@ void ABallsy::Step()
 	UE_LOG(LogTemp, Display, TEXT("Consider %d neighbours"), Consider.Num())
 	const auto CubeSet = TSet<FVector4>(this->Cubes);
 	auto NewCubes = TArray<FVector4>();
-	auto Shrinks = TArray<int>();
+	Shrinks.Empty();
 	for (const auto C : Consider)
 	{
 		int activeNeighbours = 0;
@@ -154,13 +158,9 @@ void ABallsy::Step()
 	UE_LOG(LogTemp, Display, TEXT("Making %d new cubes."), NewCubes.Num())
 	this->Cubes = NewCubes;
 }
-
-void ABallsy::OnGameTick()
+void ABallsy::OnGameShrunk()
 {
-	Cycle++;
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Orange, FString::Printf(TEXT("TICK: Cycle %i, Cubes:%i"), Cycle, Cubes.Num()));
-	Step();
-	UE_LOG(LogTemp, Display, TEXT("Cycle %d contains %d cubes."), Cycle, Cubes.Num())
+	this->Shrinks.Empty();
 	Paint();
 	if (Cycle < GCycles)
 	{
@@ -168,8 +168,28 @@ void ABallsy::OnGameTick()
 	}
 }
 
+void ABallsy::OnGameTick()
+{
+	Cycle++;
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Orange, FString::Printf(TEXT("TICK: Cycle %i, Cubes:%i"), Cycle, Cubes.Num()));
+	Step();
+	UE_LOG(LogTemp, Display, TEXT("Cycle %d contains %d cubes."), Cycle, Cubes.Num())
+	GetWorld()->GetTimerManager().SetTimer(GameTimerHandle, this, &ABallsy::OnGameShrunk, 1.0, false);
+}
+
 // Called every frame
 void ABallsy::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+	if (0 < this->Shrinks.Num() && this->Shrinks.Num() <= Instances.Num()) {
+		auto I = TArray<FTransform>(Instances);
+		for (auto S : this->Shrinks)
+		{
+			const auto Scale = Instances[S].GetScale3D().X;
+			auto NuScale = FVector(FMath::Max(Scale - DeltaTime, 0.0f));
+			Instances[S].SetScale3D(NuScale);
+			IMesh->UpdateInstanceTransform(S, Instances[S]);
+		}
+		IMesh->MarkRenderStateDirty();
+	}
 }
