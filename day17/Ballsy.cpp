@@ -174,11 +174,15 @@ void ABallsy::Step()
 			}
 		}
 	}
+	/*
 	for (auto S: Shrinks) {
 		this->AudioComponentShrink->SetPitchMultiplier(1.0 + S/Shrinks.Num());
 		this->AudioComponentShrink->AddLocalOffset(this->Cubes[S]);
 		this->AudioComponentShrink->Play();
 	}
+	*/
+	this->AudioComponentShrink->Play();
+
 	UE_LOG(LogTemp, Display, TEXT("Making %d new cubes."), NewCubes.Num())
 	this->Cubes = NewCubes;
 }
